@@ -3,7 +3,7 @@ import AppLayout from '@/components/AppLayout';
 import ChatBubble from '@/components/chat/ChatBubble';
 import ChatInput from '@/components/chat/ChatInput';
 import { useChat, ChatSession } from '@/context/ChatContext';
-import { Bot, RefreshCw, WifiOff, Sparkles, GraduationCap, Globe, Search, Inbox, TrendingUp, ArrowRight, Clock, Plus, MessageSquare, MoreHorizontal, Pin, PinOff, Pencil, Trash2, Download, Loader2, User } from 'lucide-react';
+import { Bot, RefreshCw, WifiOff, Sparkles, GraduationCap, Globe, Search, Inbox, TrendingUp, ArrowRight, Clock, Plus, MessageSquare, MoreHorizontal, Pin, PinOff, Pencil, Trash2, Download, Loader2, User, Menu, X } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { chatWithBotCloud } from '@/services/api';
 import { useApp } from '@/context/AppContext';
@@ -22,6 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ConversationContext {
   previousMessages: Array<{ role: string; content: string }>;
@@ -31,8 +32,6 @@ interface ConversationContext {
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
 const ITEMS_PER_PAGE = 9;
-
-// SUGGESTIONS moved to use translations inside components
 
 const fallbackOpportunities: Opportunity[] = [
   { id: 1, titre: "Bourse d'Excellence Africaine 2025", description: "Programme de bourses complètes pour études supérieures en sciences et technologies.", type: "Bourse", pays: "Plusieurs pays", date_limite: "30 Mars 2025", lien: "#" },
@@ -225,7 +224,7 @@ const DashboardPanel = ({ onNavigate }: { onNavigate: (panel: ActivePanel) => vo
 };
 
 // ─── EduBot Session Sidebar ───────────────────────────────────────────────────
-const EdubotSessionSidebar = ({ onNavigate }: { onNavigate: (panel: ActivePanel) => void }) => {
+const EdubotSessionSidebar = ({ onNavigate, onClose }: { onNavigate: (panel: ActivePanel) => void; onClose?: () => void }) => {
   const { t, language } = useLanguage();
   const getRelativeTime = createGetRelativeTime(t, language);
   const {
@@ -263,6 +262,12 @@ const EdubotSessionSidebar = ({ onNavigate }: { onNavigate: (panel: ActivePanel)
     URL.revokeObjectURL(url);
   };
 
+  const handleSwitchSession = (id: string) => {
+    switchSession(id);
+    // Fermer la sidebar sur mobile après sélection
+    if (onClose) onClose();
+  };
+
   const renderSession = (session: ChatSession, isPin = false) => {
     const isActive = session.id === currentSessionId;
     const isEditing = session.id === editingId;
@@ -279,7 +284,7 @@ const EdubotSessionSidebar = ({ onNavigate }: { onNavigate: (panel: ActivePanel)
             ? 'bg-primary/8 border border-primary/15'
             : 'hover:bg-muted/60 border border-transparent'
         )}
-        onClick={() => !isEditing && switchSession(session.id)}
+        onClick={() => !isEditing && handleSwitchSession(session.id)}
       >
         <div className="flex items-start gap-2">
           <div className={cn(
@@ -356,16 +361,24 @@ const EdubotSessionSidebar = ({ onNavigate }: { onNavigate: (panel: ActivePanel)
   const recentSessions = [...(sessionsByDate.today || []), ...(sessionsByDate.yesterday || []), ...(sessionsByDate.thisWeek || []), ...(sessionsByDate.older || [])].filter(s => !s.isPinned);
 
   return (
-    <div className="w-80 flex-shrink-0 border-r border-border flex flex-col bg-background h-full overflow-hidden">
+    <div className="w-80 flex-shrink-0 flex flex-col bg-background h-full overflow-hidden">
       {/* ── Header EduBot ── */}
       <div className="px-4 pt-5 pb-4 flex-shrink-0">
-        {/* Back link */}
-        <button
-          onClick={() => onNavigate('dashboard')}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowRight className="w-3 h-3 rotate-180" /> {t.chat.backToDashboard}
-        </button>
+        {/* Back link + bouton fermer mobile */}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => onNavigate('dashboard')}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowRight className="w-3 h-3 rotate-180" /> {t.chat.backToDashboard}
+          </button>
+          {/* Bouton ✕ visible uniquement sur mobile (quand onClose est fourni) */}
+          {onClose && (
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
         {/* EduBot identity */}
         <div className="flex items-center gap-3 mb-4">
@@ -380,7 +393,7 @@ const EdubotSessionSidebar = ({ onNavigate }: { onNavigate: (panel: ActivePanel)
 
         {/* New conversation button */}
         <Button
-          onClick={() => createNewSession()}
+          onClick={() => { createNewSession(); if (onClose) onClose(); }}
           className="w-full gap-2 h-10 text-sm font-semibold rounded-xl shadow-sm"
           style={{ background: 'var(--gradient-primary)' }}
         >
@@ -465,6 +478,8 @@ const EdubotSessionSidebar = ({ onNavigate }: { onNavigate: (panel: ActivePanel)
 const ChatPanel = ({ onNavigate }: { onNavigate: (panel: ActivePanel) => void }) => {
   const { toast } = useToast();
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false); // fermée par défaut sur mobile
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { currentSession, currentSessionId, addMessage, createNewSession } = useChat();
 
@@ -511,7 +526,6 @@ const ChatPanel = ({ onNavigate }: { onNavigate: (panel: ActivePanel) => void })
     if (!sessionId) sessionId = createNewSession();
     if (isOffline) { toast({ title: 'Hors ligne', description: 'Vérifiez votre connexion.', variant: 'destructive' }); return; }
 
-    // Build attachment metadata for display
     const msgAttachments = chatAttachments?.map(a => ({
       name: a.file.name,
       type: a.type,
@@ -524,7 +538,6 @@ const ChatPanel = ({ onNavigate }: { onNavigate: (panel: ActivePanel) => void })
     addMessage(sessionId, userMsg);
     setIsTyping(true); setIsError(false); setLastFailedMessage(null);
 
-    // Build text to send to AI (include file names for context)
     const aiText = text || (chatAttachments?.map(a => a.type === 'audio' ? "[L'utilisateur a envoyé un message vocal]" : `[Fichier joint: ${a.file.name}]`).join(' ') || '');
 
     try {
@@ -541,15 +554,47 @@ const ChatPanel = ({ onNavigate }: { onNavigate: (panel: ActivePanel) => void })
   };
 
   return (
-    <div className="flex flex-1 overflow-hidden h-full">
+    <div className="flex flex-1 overflow-hidden h-full relative">
+
+      {/* Overlay sombre derrière la sidebar sur mobile */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* ── Sidebar sessions ── */}
-      <EdubotSessionSidebar onNavigate={onNavigate} />
+      <div className={cn(
+        'flex-shrink-0 border-r border-border bg-background z-50',
+        isMobile
+          ? `fixed inset-y-0 left-0 w-80 transition-transform duration-300 shadow-2xl ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+          : 'relative w-80'
+      )}>
+        <EdubotSessionSidebar
+          onNavigate={onNavigate}
+          onClose={isMobile ? () => setSidebarOpen(false) : undefined}
+        />
+      </div>
 
       {/* ── Zone de chat ── */}
       <div className="flex-1 flex flex-col min-w-0 bg-muted/20">
-        {/* Header conversation — style référence */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-border bg-background flex-shrink-0">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-[hsl(211,80%,50%)] flex items-center justify-center shadow-sm">
+
+        {/* Header conversation */}
+        <div className="h-16 flex items-center gap-3 px-4 border-b border-border bg-background flex-shrink-0">
+
+          {/* Bouton hamburger — mobile uniquement */}
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(v => !v)}
+              className="p-2 rounded-lg hover:bg-muted transition-colors flex-shrink-0"
+              aria-label="Ouvrir le menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-[hsl(211,80%,50%)] flex items-center justify-center shadow-sm flex-shrink-0">
             <Bot className="w-5 h-5 text-primary-foreground" />
           </div>
           <div className="flex-1 min-w-0">
@@ -575,7 +620,7 @@ const ChatPanel = ({ onNavigate }: { onNavigate: (panel: ActivePanel) => void })
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-4 py-6">
           <div className="max-w-3xl mx-auto space-y-1">
             {displayMessages.map(msg => (
               <ChatBubble key={msg.id} message={msg.text} isUser={msg.isUser} timestamp={msg.timestamp} attachments={msg.attachments} />
@@ -626,7 +671,7 @@ const ChatPanel = ({ onNavigate }: { onNavigate: (panel: ActivePanel) => void })
         </div>
 
         {/* Input */}
-        <div className="bg-background px-6 py-4 flex-shrink-0 border-t border-border">
+        <div className="bg-background px-4 py-4 flex-shrink-0 border-t border-border">
           <div className="max-w-3xl mx-auto">
             <ChatInput onSendMessage={handleSendMessage} disabled={isTyping || isOffline} placeholder={t.chat.placeholder} />
           </div>
@@ -859,7 +904,6 @@ const SettingsPanel = () => {
   );
 };
 
-
 // ─── Guest Chat (sans connexion) ─────────────────────────────────────────────
 const GuestChat = () => {
   const navigate = useNavigate();
@@ -911,7 +955,6 @@ const GuestChat = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
       <main className="flex-1 flex flex-col pt-14">
-        {/* Messages area */}
         <div className="flex-1 overflow-y-auto px-4 py-6">
           <div className="max-w-2xl mx-auto space-y-1">
             {!hasStarted && (
@@ -959,7 +1002,6 @@ const GuestChat = () => {
           </div>
         </div>
 
-        {/* Input + CTA */}
         <div className="bg-background px-4 py-4 border-t border-border">
           <div className="max-w-2xl mx-auto">
             <ChatInput onSendMessage={handleSendMessage} disabled={isTyping || isOffline} placeholder={t.chat.placeholder} />
@@ -983,7 +1025,6 @@ const ChatContent = () => {
     return <GuestChat />;
   }
 
-  // Mode EduBot : interface dédiée plein écran, sans topbar ni sidebar principale
   if (activePanel === 'chat') {
     return (
       <div className="h-screen flex overflow-hidden bg-background">
