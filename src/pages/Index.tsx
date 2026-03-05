@@ -2586,21 +2586,48 @@ const OpportunitiesPanel = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // const fetchOpps = async () => {
+    //   setLoading(true);
+    //   try {
+    //     if (user) {
+    //       // const response = await fetch("http://localhost:5000/api/recommend", {
+    //       // const response = await fetch("http://localhost:7860/api/recommend", {
+    //       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/recommend`, {
+    //         method: "POST",
+    //         headers: { "Content-Type": "application/json" },
+    //         body: JSON.stringify({ user_id: user.id }),
+    //       });
+    //       if (response.ok) {
+    //         const aiData = await response.json();
+    //         setOpportunities(aiData.recommandations || []);
+    //       }
+    //     }
+    //   } catch (error) { console.error("Erreur", error); } finally { setLoading(false); }
+    // };
+    // Ligne ~155 dans Index.tsx
     const fetchOpps = async () => {
       setLoading(true);
       try {
         if (user) {
-          const response = await fetch("http://localhost:5000/api/recommend", {
+          // Vite injectera automatiquement la valeur du .env ici
+          const apiUrl = import.meta.env.VITE_API_URL;
+
+          const response = await fetch(`${apiUrl}/api/recommend`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: user.id }),
           });
+
           if (response.ok) {
             const aiData = await response.json();
             setOpportunities(aiData.recommandations || []);
           }
         }
-      } catch (error) { console.error("Erreur", error); } finally { setLoading(false); }
+      } catch (error) {
+        console.error("Erreur de connexion :", error);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchOpps();
   }, [user]);
@@ -2712,14 +2739,14 @@ const ProfilePanel = () => {
   useEffect(() => {
     if (profile) {
       const parts = profile.name?.split(' ') || [];
-      setFormData({ 
-        firstname: parts[0] || '', 
-        lastname: parts.slice(1).join(' ') || '', 
-        location: [profile.ville, profile.pays].filter(Boolean).join(', '), 
-        niveau: profile.niveau || '', 
-        filiere: profile.filiere || '', 
-        interets: profile.interets?.join(', ') || '', 
-        ambitions: (profile as any).ambitions || '' 
+      setFormData({
+        firstname: parts[0] || '',
+        lastname: parts.slice(1).join(' ') || '',
+        location: [profile.ville, profile.pays].filter(Boolean).join(', '),
+        niveau: profile.niveau || '',
+        filiere: profile.filiere || '',
+        interets: profile.interets?.join(', ') || '',
+        ambitions: (profile as any).ambitions || ''
       });
     }
   }, [profile]);
@@ -2728,14 +2755,14 @@ const ProfilePanel = () => {
     setIsSaving(true);
     try {
       const loc = formData.location.split(',').map(s => s.trim());
-      await updateProfile({ 
-        name: `${formData.firstname} ${formData.lastname}`.trim(), 
-        ville: loc[0], 
-        pays: loc[1], 
-        niveau: formData.niveau, 
-        filiere: formData.filiere, 
-        interets: formData.interets.split(',').map(s => s.trim()).filter(Boolean), 
-        ambitions: formData.ambitions 
+      await updateProfile({
+        name: `${formData.firstname} ${formData.lastname}`.trim(),
+        ville: loc[0],
+        pays: loc[1],
+        niveau: formData.niveau,
+        filiere: formData.filiere,
+        interets: formData.interets.split(',').map(s => s.trim()).filter(Boolean),
+        ambitions: formData.ambitions
       } as any);
       toast({ title: '✅ Profil mis à jour' });
     } catch { toast({ title: 'Erreur', variant: 'destructive' }); } finally { setIsSaving(false); }
@@ -2747,19 +2774,19 @@ const ProfilePanel = () => {
       <div className="bg-card border rounded-2xl p-6 space-y-4 shadow-sm">
         <h2 className="text-sm font-semibold uppercase text-primary">Identité</h2>
         <div className="grid md:grid-cols-2 gap-4">
-          <Input placeholder="Prénom" value={formData.firstname} onChange={e => setFormData({...formData, firstname: e.target.value})} />
-          <Input placeholder="Nom" value={formData.lastname} onChange={e => setFormData({...formData, lastname: e.target.value})} />
+          <Input placeholder="Prénom" value={formData.firstname} onChange={e => setFormData({ ...formData, firstname: e.target.value })} />
+          <Input placeholder="Nom" value={formData.lastname} onChange={e => setFormData({ ...formData, lastname: e.target.value })} />
         </div>
-        <Input placeholder="Dakar, Sénégal" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
-        
+        <Input placeholder="Dakar, Sénégal" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
+
         <h2 className="text-sm font-semibold uppercase text-primary mt-6">Parcours & IA</h2>
         <div className="grid md:grid-cols-2 gap-4">
-          <Input placeholder="Niveau d'études" value={formData.niveau} onChange={e => setFormData({...formData, niveau: e.target.value})} />
-          <Input placeholder="Filière" value={formData.filiere} onChange={e => setFormData({...formData, filiere: e.target.value})} />
+          <Input placeholder="Niveau d'études" value={formData.niveau} onChange={e => setFormData({ ...formData, niveau: e.target.value })} />
+          <Input placeholder="Filière" value={formData.filiere} onChange={e => setFormData({ ...formData, filiere: e.target.value })} />
         </div>
-        <textarea className="w-full min-h-[80px] rounded-xl border p-3 text-sm focus:ring-2 focus:ring-primary/30" placeholder="Centres d'intérêt (IA, Data...)" value={formData.interets} onChange={e => setFormData({...formData, interets: e.target.value})} />
-        <textarea className="w-full min-h-[100px] rounded-xl border p-3 text-sm focus:ring-2 focus:ring-primary/30" placeholder="Vos ambitions professionnelles..." value={formData.ambitions} onChange={e => setFormData({...formData, ambitions: e.target.value})} />
-        
+        <textarea className="w-full min-h-[80px] rounded-xl border p-3 text-sm focus:ring-2 focus:ring-primary/30" placeholder="Centres d'intérêt (IA, Data...)" value={formData.interets} onChange={e => setFormData({ ...formData, interets: e.target.value })} />
+        <textarea className="w-full min-h-[100px] rounded-xl border p-3 text-sm focus:ring-2 focus:ring-primary/30" placeholder="Vos ambitions professionnelles..." value={formData.ambitions} onChange={e => setFormData({ ...formData, ambitions: e.target.value })} />
+
         <Button onClick={handleSave} disabled={isSaving} className="w-full rounded-xl">
           {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : 'Enregistrer les modifications'}
         </Button>
@@ -2824,10 +2851,10 @@ const ChatContent = () => {
   if (activePanel === 'chat') return <div className="h-screen flex overflow-hidden bg-background"><ChatPanel onNavigate={setActivePanel} /></div>;
   return (
     <AppLayout activePanel={activePanel} onNavigate={setActivePanel}>
-      {activePanel === 'dashboard'   && <DashboardPanel onNavigate={setActivePanel} />}
+      {activePanel === 'dashboard' && <DashboardPanel onNavigate={setActivePanel} />}
       {activePanel === 'opportunites' && <OpportunitiesPanel />}
-      {activePanel === 'profil'      && <ProfilePanel />}
-      {activePanel === 'parametres'  && <SettingsPanel />}
+      {activePanel === 'profil' && <ProfilePanel />}
+      {activePanel === 'parametres' && <SettingsPanel />}
     </AppLayout>
   );
 };
